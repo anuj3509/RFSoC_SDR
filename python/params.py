@@ -202,15 +202,26 @@ class Params_Class(object):
 
 
 
+
+
+
+
+
+
+
+
+
             # FR3 measurements parameters (overwritten)
             # self.nf_param_estimate = True
             # self.use_linear_track = True
             self.control_rfsoc=True
-            self.control_piradio=True
+            self.control_piradio=False
+            self.RFFE='sivers'
             self.params_path = os.path.join(self.params_dir, 'params.json')
             self.save_parameters=True
             self.load_parameters=False
-            self.freq_hop_list = [6.5e9, 8.75e9, 10.0e9, 15.0e9, 21.7e9]
+            self.freq_hop_list = [57.51e9]
+            # self.freq_hop_list = [6.5e9, 8.75e9, 10.0e9, 15.0e9, 21.7e9]
             # self.freq_hop_list = [8.75e9, 10.0e9, 21.7e9]
             self.mode = 'client'
             self.piradio_freq_sw_dly = 0.1
@@ -225,7 +236,7 @@ class Params_Class(object):
             self.n_rd_rep=8
             self.plt_tx_ant_id = 0
             self.plt_rx_ant_id = 0
-            self.animate_plot_mode=['h01', 'rxfd01', 'IQ']
+            self.animate_plot_mode=['h01', 'rxfd01', 'aoa_gauge']
             # self.animate_plot_mode=['h01', 'rxfd01', 'IQ']
             self.anim_interval=100
             # self.save_list = ['signal']           # signal or channel
@@ -267,7 +278,58 @@ class Params_Class(object):
             self.rx_chain.append('channel_eq')
 
 
+
+
+        # Using sivers antenna at 57.51 GHz for mmWave measurements [overwritten]
+        self.RFFE='sivers'
+        self.control_rfsoc=True
+        self.control_piradio=False
+        self.freq_hop_list = [57.51e9]
+        
+        # self.eder.init()
+        # self.eder.ver()
+        # self.eder.check()
+        # self.eder.check_chip_type()
+        # self.eder.trx_hw_sw_enable()    # enables switching between TX/RX using HW GPIOs
+        # # eder.set_mode('RXen0_TXen1')
+        # if self.send_signal:
+        #     self.eder.tx.setup(57.51e9)  # Set TX frequency
+        #     self.eder.tx.enable()  # Enable TX
+        #     self.eder.run_tx(57.51e9)
+        #     # self.eder.tx.set_beam(0)  # Example beam index 0
+
+        # if self.recv_signal:
+        #     self.eder.rx.setup(57.51e9)  # Set RX frequency
+        #     self.eder.rx.enable()  # Enable RX
+        #     self.eder.run_rx(57.51e9)
+        #     # self.eder.rx.set_beam(0)  # Example beam index 0
+
+
+
+
+
+
+
+
+
+
         self.initialize()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
