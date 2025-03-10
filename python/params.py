@@ -1,5 +1,6 @@
 from backend import *
 from backend import be_np as np, be_scp as scipy
+from siversController import siversController
 
 
 
@@ -215,8 +216,9 @@ class Params_Class(object):
             # self.nf_param_estimate = True
             # self.use_linear_track = True
             self.control_rfsoc=True
-            self.control_piradio=False
-            self.RFFE='sivers'
+            self.control_piradio=True
+            self.control_sivers = False
+            self.RFFE='piradio'
             self.params_path = os.path.join(self.params_dir, 'params.json')
             self.save_parameters=True
             self.load_parameters=False
@@ -281,28 +283,37 @@ class Params_Class(object):
 
 
         # Using sivers antenna at 57.51 GHz for mmWave measurements [overwritten]
-        self.RFFE='sivers'
-        self.control_rfsoc=True
-        self.control_piradio=False
+        self.RFFE = 'sivers'
+        self.control_rfsoc = True
+        self.control_piradio = False
+        self.control_sivers = True
         self.freq_hop_list = [57.51e9]
         
-        # self.eder.init()
-        # self.eder.ver()
-        # self.eder.check()
-        # self.eder.check_chip_type()
-        # self.eder.trx_hw_sw_enable()    # enables switching between TX/RX using HW GPIOs
-        # # eder.set_mode('RXen0_TXen1')
-        # if self.send_signal:
-        #     self.eder.tx.setup(57.51e9)  # Set TX frequency
-        #     self.eder.tx.enable()  # Enable TX
-        #     self.eder.run_tx(57.51e9)
-        #     # self.eder.tx.set_beam(0)  # Example beam index 0
+        # Sivers EVK06002 specific settings
+        self.sivers_addr = 'ftdi://ftdi:4232:SNSP200059'  # FTDI address for Sivers EVK
+        self.sivers_tx_power = 0  # TX power in dBm
+        self.sivers_rx_gain = 0   # RX gain in dB
+        self.mixer_mode = 'analog'
+        self.mix_freq = 1000e6  # 1 GHz IF frequency
+        self.do_mixer_settings = True
+        self.do_pll_settings = True
 
-        # if self.recv_signal:
-        #     self.eder.rx.setup(57.51e9)  # Set RX frequency
-        #     self.eder.rx.enable()  # Enable RX
-        #     self.eder.run_rx(57.51e9)
-        #     # self.eder.rx.set_beam(0)  # Example beam index 0
+        # Initialize Sivers controller
+        if self.control_sivers:
+            self.sivers = siversController(self.sivers_addr)
+            self.sivers.init()
+            
+            if self.send_signal:
+                self.sivers.setFrequency(57.51e9)
+                self.sivers.setMode('RXen0_TXen1')  # TX mode
+                self.sivers.setBeamIndexTX(32)  # Default beam index
+                self.sivers.setGainTX(0x00, 0x00, 0x44, 0x33)  # Set nominal TX gains
+                
+            if self.recv_signal:
+                self.sivers.setFrequency(57.51e9)
+                self.sivers.setMode('RXen1_TXen0')  # RX mode
+                self.sivers.setBeamIndexRX(32)  # Default beam index
+                self.sivers.setGainRX(0x77, 0x11, 0x44, 0x77)  # Set nominal RX gains
 
 
 
