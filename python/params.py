@@ -282,38 +282,53 @@ class Params_Class(object):
 
 
 
-        # Using sivers antenna at 57.51 GHz for mmWave measurements [overwritten]
-        self.RFFE = 'sivers'
-        self.control_rfsoc = True
-        self.control_piradio = False
-        self.control_sivers = True
-        self.freq_hop_list = [57.51e9]
-        
-        # Sivers EVK06002 specific settings
-        self.sivers_addr = 'ftdi://ftdi:4232:SNSP200059'  # FTDI address for Sivers EVK
-        self.sivers_tx_power = 0  # TX power in dBm
-        self.sivers_rx_gain = 0   # RX gain in dB
-        self.mixer_mode = 'analog'
-        self.mix_freq = 1000e6  # 1 GHz IF frequency
-        self.do_mixer_settings = True
-        self.do_pll_settings = True
+            # Using sivers antenna at 57.51 GHz for mmWave measurements [overwritten]
+            self.RFFE = 'sivers'
+            self.control_rfsoc = True
+            self.control_piradio = False
+            self.control_sivers = True
+            self.freq_hop_list = [57.51e9]  # 57.51 GHz operation
 
-        # Initialize Sivers controller
-        if self.control_sivers:
-            self.sivers = siversController(self.sivers_addr)
-            self.sivers.init()
-            
-            if self.send_signal:
-                self.sivers.setFrequency(57.51e9)
-                self.sivers.setMode('RXen0_TXen1')  # TX mode
-                self.sivers.setBeamIndexTX(32)  # Default beam index
-                self.sivers.setGainTX(0x00, 0x00, 0x44, 0x33)  # Set nominal TX gains
+
+
+            # Transmitter-specific settings
+            self.send_signal = True
+            self.recv_signal = False
+
+            # Mode settings
+            if self.control_sivers:
+                # The sivers.setMode('RXen0_TXen1') will be called
+                # This enables TX and disables RX
+                self.tx_mode = 'RXen0_TXen1'
                 
-            if self.recv_signal:
-                self.sivers.setFrequency(57.51e9)
-                self.sivers.setMode('RXen1_TXen0')  # RX mode
-                self.sivers.setBeamIndexRX(32)  # Default beam index
-                self.sivers.setGainRX(0x77, 0x11, 0x44, 0x77)  # Set nominal RX gains
+            # Transmitter gain settings
+            self.tx_bb_gain = 0x00    # Baseband gain
+            self.tx_bb_phase = 0x00  # Phase adjustment
+            self.tx_bb_iq_gain = 0x44 # I/Q gain control
+            self.tx_bfrf_gain = 0x33  # Beamforming/RF gain
+
+
+
+
+
+
+            # # Receiver-specific settings
+            # self.send_signal = False
+            # self.recv_signal = True
+
+            # # Mode settings
+            # if self.control_sivers:
+            #     # The sivers.setMode('RXen1_TXen0') will be called
+            #     # This enables RX and disables TX
+            #     self.rx_mode = 'RXen1_TXen0'
+                
+            # # Receiver gain settings
+            # self.rx_gain_ctrl_bb1 = 0x77  # First baseband gain stage
+            # self.rx_gain_ctrl_bb2 = 0x11  # Second baseband gain stage
+            # self.rx_gain_ctrl_bb3 = 0x44  # Third baseband gain stage
+            # self.rx_gain_ctrl_bfrf = 0x77 # Beamforming/RF gain
+        
+        
 
 
 
@@ -515,4 +530,3 @@ class Params_Class(object):
 
     def copy(self):
         return copy.deepcopy(self)
-    
