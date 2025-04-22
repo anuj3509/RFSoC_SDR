@@ -388,12 +388,12 @@ class Params_Class(Params_Class_Default):
             self.mode = 'client'
             self.RFFE='sivers'
             self.wb_sc_range=[-300,-100]
-            self.send_signal=True
-            self.recv_signal=False
-            self.animate_plot_mode=['h', 'txfd']
+            self.send_signal=False
+            self.recv_signal=True
+            self.animate_plot_mode=['h', 'rxfd']
             self.rx_chain = ['sync_time', 'channel_est']
             # self.rx_chain = ['sync_time', 'channel_est', 'channel_eq']
-            self.freq_hop_config['list'] = [60.00e9]
+            self.freq_hop_config['list'] = [60.0e9]
             # self.tx_sig_sim = 'orthogonal'        # same or orthogonal or shifted
             # self.sig_gen_mode = 'ZadoffChu'
             self.save_parameters=True
@@ -474,7 +474,6 @@ class Params_Class(Params_Class_Default):
             # self.measurement_configs.append('B_gamma_<rxorient>_n')
             # self.measurement_configs.append('B_beta_<rxorient>_n')
             # self.measurement_configs.append('C_beta_<rxorient>_n')
-            # self.measurement_configs.append('A_alpha_alpha_n')
             # self.measurement_configs.append('C_alpha_<rxorient>_n')
             # self.measurement_configs.append('C_gamma_<rxorient>_n')
             # self.measurement_configs.append('D_gamma_<rxorient>_n')
