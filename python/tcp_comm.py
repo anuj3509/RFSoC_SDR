@@ -127,12 +127,12 @@ class Tcp_Comm_RFSoC(Tcp_Comm):
         self.n_rx_ant = params.n_rx_ant
 
         if self.RFFE=='sivers':
-            self.tx_bb_gain = 0x3
+            self.tx_bb_gain = 0x33
             self.tx_bb_phase = 0x0
             self.tx_bb_iq_gain = 0x77
             self.tx_bfrf_gain = 0x7F
             self.rx_gain_ctrl_bb1 = 0x33
-            self.rx_gain_ctrl_bb2 = 0x00
+            self.rx_gain_ctrl_bb2 = 0x33
             self.rx_gain_ctrl_bb3 = 0x33
             self.rx_gain_ctrl_bfrf = 0x7F
 
@@ -471,7 +471,7 @@ class Tcp_Comm_Controller(Tcp_Comm):
 
         self.print("Tcp_Comm_Controller object init done", thr=1)
 
-    def set_frequency(self, fc=6.0e9):
+    def set_frequency(self, fc):
         self.print("Setting frequency to {} GHz".format(fc/1e9), thr=3)
         self.radio_control.sendall(b"setFrequency "+str.encode(str(fc)))
         data = self.radio_control.recv(1024)

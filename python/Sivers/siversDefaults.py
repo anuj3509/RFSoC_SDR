@@ -49,7 +49,7 @@ class siversDefaults(General):
         self.temp_k       = 4e-3
         self.alc_path = '/lut/vco'
 
-        self.fc = 60.48e9 #57.51e9 #
+        self.fc =  60.48e9#57.51e9 #
         self.bias_vco_x3_lo_freq = 61.29e9
         self.bias_vco_x3_hi_freq = 68.31e9        
 
