@@ -1,105 +1,151 @@
 # RFSoC_SDR
 
-## Steps to bring up an RFSoC4x2
+A Software Defined Radio implementation using Xilinx RFSoC4x2 for millimeter-wave measurements.
 
-- A very good source of information is provided in [This Link](https://github.com/nyu-wireless/mmwsdr) and [This Link](https://github.com/nyu-wireless/mmwsdr/tree/main/Lessons%20for%20RFSoC)
+## Table of Contents
+1. [Prerequisites](#prerequisites)
+2. [RFSoC4x2 Setup](#rfsoc4x2-setup)
+3. [Host Computer Setup](#host-computer-setup)
+4. [Pi-Radio FR3 Transceiver Setup](#pi-radio-fr3-transceiver-setup)
+5. [Running Measurements](#running-measurements)
+6. [Citation](#citation)
 
-- Download the RFSoC4x2 image from [here](https://www.pynq.io/boards.html). This repo is tested with v3.0.1 but newer versions should be also OK unless they are not backward compatible.
-- Program the RFSoC4x2 image to the provided SD-card usign Rufus (in windows) or any other similar softwares in your specific OS.
-- Put the SD-card in RFSoC4x2 and power it on. Wait until you see the IP address information shown on the LCD.
-- Connect the RFSoC4x2 to your laptop/PC using a USB cable.
-- Open the RFSoC web interface using a web browser on [This Link](http://192.168.3.1:9090/lab/)
-- Put all the python scripts from [here](https://github.com/ali-rasteh/RFSoC_SDR/tree/main/python) in the corresponding project folder on the board. you can create a folder for your project at `/home/xilinx/jupyter_notebooks/YOURFOLDER/`. You only need to copy the `.py` scripts not all other folders in the provided link.
-- In the `backend.py` script, change `import_pynq` to True. Also if you're planning to use the Sivers antenna, please change `import_sivers` to True.
-- Put the clock configurations files from [this folder in the Repo](https://github.com/ali-rasteh/RFSoC_SDR/tree/main/rfsoc/rfsoc4x2_clock_configs) in this folder on RFSoC4x2: `/usr/local/share/pynq-venv/lib/python3.10/site-packages/xrfclk/`
-- Provide internet connection to the board by connecting it to a server/PC and routing the traffic or by any other methods you like. 
-- Install the RFSoC-MTS package on the RFSoC4x2 according to instructions in [this linke](https://github.com/Xilinx/RFSoC-MTS/tree/main)
-- Put the latest version of the RFSoC4x2 FPGA image files from [here](https://github.com/ali-rasteh/RFSoC_SDR/tree/main/vivado/sounder_fr3_if_ddr4_mimo_4x2/builds) in your project folder beside the python scritps. You only need to transfer `.bit` and `.hwh` files. Please don't transfer the `.xsa` along with the other two files because it causes a kind of conflict in loading the image.
+## Prerequisites
 
+- RFSoC4x2 board
+- Pi-Radio FR3 Transceiver
+- Vivaldi antennas with appropriate spacers
+- SD card (for RFSoC4x2)
+- USB cable
+- Internet connection
+- DC blockers and filters:
+  - DC-1300 MHz filters
+  - 20dB attenuators
 
-## Steps to prepare the host computer for doing experiments
-*  First, clone the repository in your host computer.
-*  Then, we create a virtual environment.  The command below will
-create an environment named `env`,
-but any other environment name can be used.
+## RFSoC4x2 Setup
 
+### Initial Setup
+1. Download the RFSoC4x2 image from [PYNQ.io](https://www.pynq.io/boards.html)
+   - Tested with v3.0.1
+   - Newer versions should work unless not backward compatible
 
-    ~~~bash
-    python -m venv env
-    ~~~
-    The command may take several minutes, and it may not indicate
-    its progress.
-    After completion, the virtual environment files will be in a
-    directory `env`.  This directory may be large.
-* Activate the virtual environment:
+2. Program the SD card:
+   - Use Rufus (Windows) or similar software for your OS
+   - Write the RFSoC4x2 image to the SD card
 
-    ~~~bash
-    .\env\Scripts\Activate.ps1  [Windows]
-    source active env [MAC/Linux]
-        or source bin/activate
-    ~~~
-   On Windows Powershell, you may get the error message
-   *“...Activate.ps1 is not digitally signed. The script will not execute on the system.”*
-   In this case, you will want to run:
-   ~~~bash
-   Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-   ~~~
-   
-* The first time you activate the environment, install the
-package requirements:
+3. Boot the RFSoC4x2:
+   - Insert the SD card
+   - Power on the board
+   - Wait for IP address display on LCD
+   - Connect via USB cable
 
-    ~~~bash
-    (env) pip install -r requirements.txt
-    ~~~
+4. Access the web interface:
+   - Open browser and navigate to: http://192.168.3.1:9090/lab/
 
-*  You can exit the virtual environment with:
-    
-    ~~~bash
-    (env) deactivate
-    ~~~
+### Software Setup
+1. Create project directory:
+   ```bash
+   mkdir /home/xilinx/jupyter_notebooks/YOURFOLDER/
+   ```
 
+2. Copy required files:
+   - Copy Python scripts from [python folder](https://github.com/ali-rasteh/RFSoC_SDR/tree/main/python)
+   - Copy clock configuration files from [rfsoc4x2_clock_configs](https://github.com/ali-rasteh/RFSoC_SDR/tree/main/rfsoc/rfsoc4x2_clock_configs) to:
+     ```
+     /usr/local/share/pynq-venv/lib/python3.10/site-packages/xrfclk/
+     ```
+   - Copy FPGA image files (`.bit` and `.hwh` only) from [builds folder](https://github.com/ali-rasteh/RFSoC_SDR/tree/main/vivado/sounder_fr3_if_ddr4_mimo_4x2/builds)
 
-To use the package later, you will need to activate the
-virtual environment and run any commands in that environment.
+3. Configure `backend.py`:
+   - Set `import_pynq = True`
+   - Set `import_sivers = True` if using Sivers antenna
 
-### Creating a requirements file
-If you update the installation in the package, you may need to re-create the
-`requirements.txt` file with:
+4. Install RFSoC-MTS:
+   - Follow instructions from [RFSoC-MTS repository](https://github.com/Xilinx/RFSoC-MTS/tree/main)
 
-~~~bash
-   python -m pip freeze > requirements.txt
-~~~
+## Host Computer Setup
 
-If you do this on Windows, you should edit the file `requirements.txt`
-as follows:
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/ali-rasteh/RFSoC_SDR.git
+   cd RFSoC_SDR
+   ```
 
-* In `requirements.txt`, you may have a line like:
+2. Create and activate virtual environment:
+   ```bash
+   # Create environment
+   python -m venv env
 
-    ~~~
-    pywin32==306
-    ~~~
-    Delete this line since it is only needed for Windows.
+   # Activate environment
+   # Windows:
+   .\env\Scripts\Activate.ps1
+   # If you get a security error, run:
+   Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+   
+   # Mac/Linux:
+   source env/bin/activate
+   ```
 
+3. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-## Steps to do measurements on FR3 using Pi-Radio FR3 Transceiver
+4. To exit virtual environment:
+   ```bash
+   deactivate
+   ```
 
-- Assemble Vivaldi antennas using appropriate spacers to tune the antenna spacing needed for the target frequency.
-- Install Vivaldi antennas on a fixed structure.
-- Connect the RF ports of the Pi-Radio FR3 Transceiver to the Vivaldi antennas. Please be consistent in antennas port indexing. No passive elements are needed on the RF port if you're connecting them to antennas. But if you're using a cable to connect RF ports you need at least 20dB attenuator.
-- Connect the IF ports of the Pi-Radio to the RFSoC4x2. The RFSoC4x2 outout ports 1,2 are DAC_A, DAC_B respectively. Also its input ports 1,2 are ADC_B and ADC_D respectively. Please connect them to the right port numbers on the Pi-Radio. On the transmitter side, connect a DC blocker and a DC-1300 MHz filter on the RFSoC4x2 ports. On the receive side connect a DC blocker, a DC-1300 MHz filter and a 20dB attenuator on each port.
-- Power on the Pi-Radio FR3 Transceiver.
-- Connect to the Pi-Radio board by running `ssh ubuntu@192.168.137.51` in the Linux shell. The password is `temppwd`
-- run `./do_everything.sh` to configure the board on the right frequency. At this point the Pi-Radio FR3 Transceiver is ready to use.
-- Alternatively you can connect to the board's Web GUI at [This Link](http://192.168.137.51:5006) and configure all needed parameters.
-- Connect the RFSoC4x2 to your laptop/PC using a USB cable.
-- Open the RFSoC web interface using a web browser on [This Link](http://192.168.3.1:9090/lab/)
-- Run the rfsoc_test.py script on the RFSoC4x2 using a jupyter notebook or using `python rfsoc_test.py`. When you see `Waiting for a connection` in the log, the RFSoC4x2 is ready.
-- refine the configurations in the `rfsoc_test.py` file on your system/PC and run the script using `python rfsoc_test.py`. You need to run the code in an envioronment with capability of showing plots which means the backednd to show the matplotlib figures should be cofigured propoerly. I suggest you use VScode as your IDE.
-- First time you run the system you need to do phase calibration on the receiver, so when the script shows a message about the calibration, follow the instructions to run the calibration.
-- Finally the script should receive the measurements, do the needed processing and show the animation plots.
-- You can also save the signal and channel responses by adding appropriate elements to the save_list parameter.
+### Managing Requirements
+To update requirements.txt:
+```bash
+python -m pip freeze > requirements.txt
+```
+Note: On Windows, remove any `pywin32` entries from requirements.txt as they are Windows-specific.
 
+## Pi-Radio FR3 Transceiver Setup
 
+1. Hardware Setup:
+   - Assemble Vivaldi antennas with appropriate spacers to tune the antenna spacing needed for the target frequency
+   - Mount antennas on fixed structure
+   - Connect RF ports of the Pi-Radio FR3 transceiver to Vivaldi antennas
+   - Connect IF ports of the Pi-Radio FR3 transceiver to RFSoC4x2:
+     - RFSoC4x2 Output: Port 1 (DAC_A), Port 2 (DAC_B)
+     - RFSoC4x2 Input: Port 1 (ADC_B), Port 2 (ADC_D)
+   - Add required components(only if you are using cables):     # not needed when you are connecting antenna directly to RF port
+     - Transmitter(RFSoC4x2 ports): DC blocker and a DC-1300 MHz filter
+     - Receiver: DC blocker, a DC-1300 MHz filter and a 20dB attenuator on each port
+
+2. Power and Configure:
+   - Power on the Pi-Radio FR3 Transceiver
+   - Connect to board:
+     ```bash
+     ssh ubuntu@192.168.137.51
+     # Password: temppwd
+     ```
+   - Run configuration script:
+     ```bash
+     ./do_everything.sh
+     ```
+   - Alternative: Use web GUI at http://192.168.137.51:5006
+
+## Running Measurements
+
+1. Start RFSoC4x2:
+   - Connect to laptop/PC via USB cable
+   - Access web interface at http://192.168.3.1:9090/lab/
+   - Run `rfsoc_test.py` using a jupyter notebook or by using the below command:
+     ```bash
+     python rfsoc_test.py
+     ```
+   - Wait for "Waiting for a connection" message
+
+2. Run measurements:
+   - Configure `rfsoc_test.py` on your host computer/PC
+   - Run the script in an environment with plotting capabilities, FYI we are using matplotlib (recommended: VSCode)
+   - If doing for the first time, follow phase calibration instructions on the receiver side when prompted
+   - View results in animation plots
+   - Save data by adding elements to `save_list` parameter
 
 ## Citation
 
@@ -108,15 +154,13 @@ If you use this repository or code in your research, please cite it as follows:
 ### BibTeX
 ```bibtex
 @misc{Rasteh_RFSoC_SDR,
-  author       = {Rasteh, Ali},
-  title        = {Software Defined Radio using Xilinx RFSoC},
-  year         = {2024},
-  publisher    = {GitHub},
-  journal      = {GitHub repository},
-  howpublished = {GitHub repository, \url{https://github.com/ali-rasteh/RFSoC_SDR}},
-  doi          = {10.5281/zenodo.14846067},
-  note         = {Accessed: 2024-06-16}
+  author       = {Rasteh, Ali},
+  title        = {Software Defined Radio using Xilinx RFSoC},
+  year         = {2024},
+  publisher    = {GitHub},
+  journal      = {GitHub repository},
+  howpublished = {\url{https://github.com/ali-rasteh/RFSoC_SDR}},
+  doi          = {[![DOI](https://zenodo.org/badge/821517620.svg)](https://doi.org/10.5281/zenodo.14846067)},
+  note         = {Accessed: 2024-06-16}
 }
 ```
-
-[![DOI](https://zenodo.org/badge/821517620.svg)](https://doi.org/10.5281/zenodo.14846067)
