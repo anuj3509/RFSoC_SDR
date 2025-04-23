@@ -397,6 +397,14 @@ class Params_Class(Params_Class_Default):
             # self.tx_sig_sim = 'orthogonal'        # same or orthogonal or shifted
             # self.sig_gen_mode = 'ZadoffChu'
             self.save_parameters=True
+            self.tx_bb_gain = 0x33
+            self.tx_bb_phase = 0x0
+            self.tx_bb_iq_gain = 0x77
+            self.tx_bfrf_gain = 0x7F
+            self.rx_gain_ctrl_bb1 = 0x33
+            self.rx_gain_ctrl_bb2 = 0x33
+            self.rx_gain_ctrl_bb3 = 0x33
+            self.rx_gain_ctrl_bfrf = 0x7F
 
         elif self.measurement_type == 'FR3_demo_simple':
             self.mode = 'client'

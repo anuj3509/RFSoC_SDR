@@ -127,14 +127,14 @@ class Tcp_Comm_RFSoC(Tcp_Comm):
         self.n_rx_ant = params.n_rx_ant
 
         if self.RFFE=='sivers':
-            self.tx_bb_gain = 0x33
-            self.tx_bb_phase = 0x0
-            self.tx_bb_iq_gain = 0x77
-            self.tx_bfrf_gain = 0x7F
-            self.rx_gain_ctrl_bb1 = 0x33
-            self.rx_gain_ctrl_bb2 = 0x33
-            self.rx_gain_ctrl_bb3 = 0x33
-            self.rx_gain_ctrl_bfrf = 0x7F
+            self.tx_bb_gain = params.tx_bb_gain
+            self.tx_bb_phase = params.tx_bb_phase
+            self.tx_bb_iq_gain = params.tx_bb_iq_gain
+            self.tx_bfrf_gain = params.tx_bfrf_gain
+            self.rx_gain_ctrl_bb1 = params.rx_gain_ctrl_bb1
+            self.rx_gain_ctrl_bb2 = params.rx_gain_ctrl_bb2
+            self.rx_gain_ctrl_bb3 = params.rx_gain_ctrl_bb3
+            self.rx_gain_ctrl_bfrf = params.rx_gain_ctrl_bfrf
 
         self.nread = self.n_rx_ant * self.n_frame_rd * self.n_samples
 
