@@ -1067,15 +1067,18 @@ class Signal_Utils_Rfsoc(Signal_Utils):
                     ax[i][j].set_yticks(np.arange(self.nf_region[1,0], self.nf_region[1,1], 2.0))
 
                 # ax[i][j].title.set_fontsize(35-5*n_plots_row-3*n_plots_col)
-                ax[i][j].title.set_fontsize(15)
-                # ax[i][j].xaxis.label.set_fontsize(30-4*n_plots_row-2*n_plots_col)
-                ax[i][j].xaxis.label.set_fontsize(17)
-                # ax[i][j].yaxis.label.set_fontsize(30-4*n_plots_row-2*n_plots_col)
-                ax[i][j].yaxis.label.set_fontsize(15)
-                # ax[i][j].tick_params(axis='both', which='major', labelsize=25-4*n_plots_row-2*n_plots_col)  # For major ticks
-                ax[i][j].tick_params(axis='both', which='major', labelsize=15)  # For major ticks
-                # ax[i][j].legend(fontsize=30-4*n_plots_row-2.5*n_plots_col)
-                ax[i][j].legend(fontsize=15)
+                ax[i][j].title.set_fontsize(12)
+                ax[i][j].xaxis.label.set_fontsize(10)
+                ax[i][j].yaxis.label.set_fontsize(10)
+                ax[i][j].tick_params(axis='both', which='major', labelsize=9)
+
+                # Reduce legend font size and handle potential errors if legend doesn't exist
+                try:
+                    if ax[i][j].get_legend():
+                        # ax[i][j].legend(fontsize=8) # Reduced from 15
+                        ax[i][j].legend(fontsize=9)
+                except AttributeError:
+                    pass # No legend to adjust
 
                 # ax[i].autoscale()
                 ax[i][j].grid(True)
@@ -1091,7 +1094,8 @@ class Signal_Utils_Rfsoc(Signal_Utils):
                     line[i][j].set_linewidth(1.2)
 
         # Create the animation
-        plt.tight_layout()
+        # plt.tight_layout()
+        plt.tight_layout(pad=1.5, h_pad=1.0, w_pad=1.0) # Add padding
         plt.subplots_adjust(hspace=0.4, wspace=0.4)
         anim = animation.FuncAnimation(fig, update, frames=int(1e9), interval=self.anim_interval, blit=False)
         plt.show()
