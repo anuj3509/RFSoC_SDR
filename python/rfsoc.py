@@ -37,6 +37,7 @@ class RFSoC(Signal_Utils_Rfsoc):
         self.n_frame_rd=params.n_frame_rd
         self.n_tx_ant = params.n_tx_ant
         self.n_rx_ant = params.n_rx_ant
+        self.params = params # Store params for later use
         
         if self.board=='rfsoc_2x2':
             self.adc_bits = 12
@@ -154,6 +155,22 @@ class RFSoC(Signal_Utils_Rfsoc):
 
         if self.RFFE=='sivers':
             self.init_sivers(params=params)
+            # Now set beam index based on beamforming flag
+            if self.params.beamforming:
+                calculated_tx_index = self._calculate_beam_index_from_angles(self.params.steer_theta_deg, self.params.steer_phi_deg)
+                # Assuming TX and RX use the same index for now
+                calculated_rx_index = calculated_tx_index
+                self.print(f"Beamforming enabled. Setting TX index to {calculated_tx_index}, RX index to {calculated_rx_index}", thr=1)
+                success_tx, status_tx = self.siversControllerObj.setBeamIndexTX(calculated_tx_index)
+                success_rx, status_rx = self.siversControllerObj.setBeamIndexRX(calculated_rx_index)
+                if not success_tx or not success_rx:
+                     self.print(f"Warning: Failed to set Sivers beam index. TX: {status_tx}, RX: {status_rx}", thr=0)
+            else:
+                # Default beam index if beamforming is disabled
+                default_index = 32
+                self.print(f"Beamforming disabled. Setting default TX/RX beam index to {default_index}", thr=1)
+                self.siversControllerObj.setBeamIndexTX(default_index)
+                self.siversControllerObj.setBeamIndexRX(default_index)
         elif self.RFFE=='piradio':
             pass
         elif self.RFFE=='none':
@@ -549,25 +566,105 @@ class RFSoC(Signal_Utils_Rfsoc):
     
 
     def recv_frame(self, n_frame=1):
-        rxtd = np.zeros((len(self.beam_test), self.n_rx_ant*n_frame*self.n_samples), dtype='complex')
+        beam_indices_to_use = []
+        num_beams_to_process = 0
 
-        for i, beam_index in enumerate(self.beam_test):
-            if self.RFFE=='sivers':
-                self.siversControllerObj.setBeamIndexRX(beam_index)
+        if self.RFFE == 'sivers':
+            if self.params.beamforming:
+                # Get the single beam index set during __init__
+                # No need to call getBeamIndexRX here if we trust __init__ set it.
+                # We just need a list containing the single index *conceptually*.
+                # For the loop, we can just use a dummy list of size 1, or get the actual index. Let's get it.
+                try:
+                    current_rx_index = self.siversControllerObj.getBeamIndexRX()
+                    beam_indices_to_use = [current_rx_index]
+                    num_beams_to_process = 1
+                    self.print(f"Receiving frame with beamforming enabled (using pre-set RX index: {current_rx_index})", thr=2)
+                except Exception as e:
+                    self.print(f"Error getting beam index, defaulting to beam_test: {e}", thr=0)
+                    beam_indices_to_use = self.beam_test
+                    num_beams_to_process = len(beam_indices_to_use)
+            else:
+                # Use the test list if beamforming is off
+                beam_indices_to_use = self.beam_test
+                num_beams_to_process = len(beam_indices_to_use)
+                self.print(f"Receiving frames by sweeping through beam_test: {beam_indices_to_use}", thr=2)
+        else:
+            # Non-Sivers case: treat as a single receive operation
+            beam_indices_to_use = [0] # Dummy index for the loop structure
+            num_beams_to_process = 1
+            self.print("Receiving frame (non-Sivers or specific case)", thr=2)
+
+        # Allocate space based on the number of beams we will actually process
+        rxtd = np.zeros((num_beams_to_process, self.n_rx_ant * n_frame * self.n_samples), dtype='complex')
+
+        for i, beam_index in enumerate(beam_indices_to_use):
+            # Only set beam index if Sivers RFFE and beamforming is OFF (sweeping through list)
+            if self.RFFE == 'sivers' and not self.params.beamforming:
+                success, status = self.siversControllerObj.setBeamIndexRX(beam_index)
+                if not success:
+                    self.print(f"Warning: Failed to set RX beam index {beam_index} during receive loop: {status}", thr=0)
+                    # Decide how to handle failure: continue, skip, raise error? For now, just print warning.
+
+            # Perform the actual receive for this configuration/beam
+            # recv_frame_one updates self.rxtd internally
             self.recv_frame_one(n_frame=n_frame)
-            rxtd[i,:] = self.rxtd.flatten()
 
+            # Store the received data from self.rxtd
+            # Ensure flatten() handles the shape returned by recv_frame_one correctly.
+            # self.rxtd should have shape (n_rx_ant, n_samples*n_frame)
+            if self.rxtd is not None:
+                 rxtd[i, :] = self.rxtd.flatten()
+            else:
+                 self.print(f"Warning: self.rxtd is None after recv_frame_one for beam index {beam_index}", thr=0)
+                 # Handle error case, maybe fill with zeros or skip? Fill with zeros for now.
+                 rxtd[i, :] = 0
+
+
+        # --- Common post-processing remains the same ---
+        # This processing naturally handles rxtd having 1 or multiple rows (beams)
         rxfd = fft(rxtd, axis=1)
         rxfd = np.roll(rxfd, 1, axis=1)
-        Hest = rxfd * np.conj(self.txfd)
-        hest = ifft(Hest, axis=1)
-        hest = hest.flatten()
-        # re = hest.real.astype(np.int16)
-        # im = hest.imag.astype(np.int16)
 
-        self.print("Frames received from ADC", thr=5)
+        n_samples_rx_axis = rxfd.shape[-1]
+        # Check if self.txtd exists and has data before using it
+        # Also ensure txfd matches the required dimension length
+        hest = None # Initialize hest
+        if self.txtd is not None and self.txtd.size > 0 and self.txtd.shape[-1] >= n_samples_rx_axis:
+            txfd_conj = np.conj(self.txtd[:, :n_samples_rx_axis])
+            # Ensure txfd_conj can broadcast with rxfd (e.g., if txfd is (1, N) and rxfd is (M, N))
+            if txfd_conj.shape[0] == 1 and rxfd.shape[0] > 1:
+                 txfd_conj = np.tile(txfd_conj, (rxfd.shape[0], 1)) # Tile if necessary
+            elif txfd_conj.shape[0] != rxfd.shape[0] and rxfd.shape[0] != 1:
+                 # Handle potential shape mismatch if not simple broadcasting
+                 self.print(f"Warning: Shape mismatch for Hest calculation. rxfd: {rxfd.shape}, txfd_conj: {txfd_conj.shape}", thr=1)
+                 # Defaulting to raw rxfd as estimation failed. Adjust as needed.
+                 hest = rxfd
+            
+            if hest is None: # If no shape mismatch or handled
+                 Hest = rxfd * txfd_conj
+                 hest = ifft(Hest, axis=1)
+        else:
+            # Handle case where txtd is not available or has incorrect shape
+            warning_msg = "Warning: self.txtd not available"
+            if self.txtd is not None:
+                warning_msg += f" or shape mismatch (txtd: {self.txtd.shape[-1]}, needed: {n_samples_rx_axis})"
+            warning_msg += " for channel estimation. Returning raw rxfd."
+            self.print(warning_msg, thr=1)
+            hest = rxfd # Or return None, or raise an error, depending on desired behavior
 
-        # return np.concatenate((re, im))
-        return hest
+
+        self.print("Frames received from ADC and processed", thr=5)
+        return hest # Return estimated channel(s) or raw RX FD data if estimation failed
+
+    # Placeholder function to calculate beam index from angles
+    # TODO: Replace this with the actual Sivers beam index calculation logic
+    # based on your antenna array and Sivers beam codebook.
+    def _calculate_beam_index_from_angles(self, theta_deg, phi_deg):
+        # Example placeholder: Linearly map phi angle (-90 to +90) to index (0-63)
+        # This is likely incorrect for the actual hardware.
+        index = int(np.clip((phi_deg + 90.0) / 180.0 * 63.0, 0, 63))
+        print(f"Placeholder: Calculated beam index {index} for theta={theta_deg}, phi={phi_deg}", thr=1) # Use self.print if inside class
+        return index
 
 

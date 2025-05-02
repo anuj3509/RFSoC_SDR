@@ -141,8 +141,8 @@ class siversController(siversDefaults):
         # self.loadDumb('conf',group='bf_rx')
         # self.loadDumb('conf',group='bf_tx')
             
-        self.setBeamIndexTX(32)
-        self.setBeamIndexRX(32)
+        # self.setBeamIndexTX(32)
+        # self.setBeamIndexRX(32)
         
         
     def getGainRX(self):

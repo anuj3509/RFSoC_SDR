@@ -387,6 +387,7 @@ class Params_Class(Params_Class_Default):
         if self.measurement_type == 'mmw_demo_simple':
             self.mode = 'client'
             self.RFFE='sivers'
+            self.beamforming = True  # Enable beamforming
             self.wb_sc_range=[-300,-100]
             self.send_signal=True
             self.recv_signal=False
