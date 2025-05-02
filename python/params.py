@@ -387,7 +387,6 @@ class Params_Class(Params_Class_Default):
         if self.measurement_type == 'mmw_demo_simple':
             self.mode = 'client'
             self.RFFE='sivers'
-            self.beamforming = True  # Enable beamforming
             self.wb_sc_range=[-300,-100]
             self.send_signal=True
             self.recv_signal=False
@@ -406,6 +405,7 @@ class Params_Class(Params_Class_Default):
             self.rx_gain_ctrl_bb2 = 0x33
             self.rx_gain_ctrl_bb3 = 0x33
             self.rx_gain_ctrl_bfrf = 0x7F
+            self.beamforming = True  # Enable beamforming
 
         elif self.measurement_type == 'FR3_demo_simple':
             self.mode = 'client'
