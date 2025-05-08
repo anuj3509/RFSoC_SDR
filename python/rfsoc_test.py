@@ -59,7 +59,7 @@ def rfsoc_run(params):
         if params.send_signal:
             rfsoc_inst.send_frame(txtd)
         if params.recv_signal:
-            rfsoc_inst.recv_frame_one(n_frame=params.n_frame_rd)
+            rfsoc_inst.recv_frame(n_frame=params.n_frame_rd)
             signals_inst.rx_operations(txtd_base, rfsoc_inst.rxtd)
         if params.run_tcp_server:
             rfsoc_inst.run_tcp()

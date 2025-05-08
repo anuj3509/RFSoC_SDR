@@ -217,7 +217,7 @@ class Tcp_Comm_RFSoC(Tcp_Comm):
 
         if clientMsgParsed[0] == "receiveSamplesOnce":
             if len(clientMsgParsed) == 1:
-                iq_data = self.obj_rfsoc.recv_frame(n_frame=self.obj_rfsoc.n_frame_rd)
+                iq_data = self.obj_rfsoc.recv_frame_one(n_frame=self.obj_rfsoc.n_frame_rd)
                 iq_data = np.array(iq_data).flatten()
                 iq_data = iq_data * (2 ** (self.obj_rfsoc.adc_bits + 1) - 1)
                 re = iq_data.real.astype(np.int16)
