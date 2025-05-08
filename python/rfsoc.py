@@ -583,12 +583,12 @@ class RFSoC(Signal_Utils_Rfsoc):
                 except Exception as e:
                     self.print(f"Error getting beam index, defaulting to beam_test: {e}", thr=0)
                     beam_indices_to_use = self.beam_test
-                    num_beams_to_process = len(beam_indices_to_use)
+                    num_beams_to_process = len(beam_indices_to_use) 
             else:
                 # Use the test list if beamforming is off
                 beam_indices_to_use = self.beam_test
-                num_beams_to_process = len(beam_indices_to_use)
-                self.print(f"Receiving frames by sweeping through beam_test: {beam_indices_to_use}", thr=2)
+                num_beams_to_process = len(beam_indices_to_use) 
+                self.print(f"Receiving frames by sweeping through beam_test: {beam_indices_to_use}", thr=2) 
         else:
             # Non-Sivers case: treat as a single receive operation
             beam_indices_to_use = [0] # Dummy index for the loop structure
@@ -664,7 +664,7 @@ class RFSoC(Signal_Utils_Rfsoc):
         # Example placeholder: Linearly map phi angle (-90 to +90) to index (0-63)
         # This is likely incorrect for the actual hardware.
         index = int(np.clip((phi_deg + 90.0) / 180.0 * 63.0, 0, 63))
-        print(f"Placeholder: Calculated beam index {index} for theta={theta_deg}, phi={phi_deg}", thr=1) # Use self.print if inside class
+        print(f"Placeholder: Calculated beam index {index} for theta={theta_deg}, phi={phi_deg}") # Use self.print if inside class
         return index
 
 
