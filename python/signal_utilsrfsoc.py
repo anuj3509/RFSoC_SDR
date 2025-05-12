@@ -440,14 +440,14 @@ class Signal_Utils_Rfsoc(Signal_Utils):
                         n_rd_rep = self.n_save
                     else:
                         n_rd_rep = self.n_save//self.n_frame_rd
-                    rxtd = self.receive_data(client_rfsoc, n_rd_rep=n_rd_rep, mode='once', verbose=False)
+                    rxtd = self.receive_data(client_rfsoc, n_rd_rep=n_rd_rep, mode='beams', verbose=False)
                     # raise ValueError('Stop')
                     
                     if 'channel' in save_list:
                         for i in range(self.n_save):
                             # time.sleep(0.01)
                             self.print("Channel Save Iteration: {}".format(i+1), thr=0)
-                            rxtd = self.receive_data(client_rfsoc, n_rd_rep=n_rd_rep, mode='once')
+                            rxtd = self.receive_data(client_rfsoc, n_rd_rep=n_rd_rep, mode='beams')
 
                             # to handle the dimenstion needed for read repeat
                             (rxtd_base, h_est_full, H_est, H_est_max, sparse_est_params) = self.rx_operations(txtd_base, rxtd[i])
@@ -595,7 +595,7 @@ class Signal_Utils_Rfsoc(Signal_Utils):
 
             if sigs_save is None:
                 if channels_save is None:
-                    rxtd = self.receive_data(client_rfsoc, n_rd_rep=self.n_rd_rep, mode='once')
+                    rxtd = self.receive_data(client_rfsoc, n_rd_rep=self.n_rd_rep, mode='beams')
                 else:
                     rxtd = None
             else:
@@ -611,7 +611,7 @@ class Signal_Utils_Rfsoc(Signal_Utils):
                             break
                         else:
                             self.print("Re-estimating channel due to zero paths", thr=0)
-                            rxtd = self.receive_data(client_rfsoc, n_rd_rep=self.n_rd_rep, mode='once')
+                            rxtd = self.receive_data(client_rfsoc, n_rd_rep=self.n_rd_rep, mode='beams')
                     else:
                         break
                     H_est_full = fft(h_est_full, axis=-1)
@@ -1108,51 +1108,83 @@ class Signal_Utils_Rfsoc(Signal_Utils):
         # Expand the dimension for 1 frame received signals
         if len(rxtd.shape)<3:
             rxtd = np.expand_dims(rxtd, axis=0)
+        # Add support for beam-swept data (mode='beams')
+        # In this case, rxtd shape would be (n_rd_rep, n_beams, n_rx_ant, n_samples)
+        is_beam_sweep = len(rxtd.shape) == 4
         sparse_est_params = None
         plt_frm_id = self.plt_frame_id
         n_rd_rep = rxtd.shape[0]
+
+        # For plotting, we'll use just the first beam if beam sweep data is available
+        rxtd_plot = rxtd[plt_frm_id] if not is_beam_sweep else rxtd[plt_frm_id, 0]
 
         for ant_id in range(self.n_rx_ant):
             title = 'RX signal spectrum for antenna {}'.format(ant_id)
             xlabel = 'Frequency (MHz)'
             ylabel = 'Magnitude (dB)'
-            self.plot_signal(x=self.freq_rx, sigs=rxtd[plt_frm_id, ant_id], mode='fft', scale='dB20', title=title, xlabel=xlabel, ylabel=ylabel, plot_level=4)
+            self.plot_signal(x=self.freq_rx, sigs=rxtd_plot[ant_id], mode='fft', scale='dB20', title=title, xlabel=xlabel, ylabel=ylabel, plot_level=4)
 
             title = 'RX signal in time domain (zoomed) for antenna {}'.format(ant_id)
             xlabel = 'Time (s)'
             ylabel = 'Magnitude'
             n = 4*int(np.round(self.fs_rx/self.f_max))
-            self.plot_signal(x=self.t_rx[:n], sigs=rxtd[plt_frm_id, ant_id,:n], mode='time_IQ', scale='linear', title=title, xlabel=xlabel, ylabel=ylabel, legend=True, plot_level=4)
+            self.plot_signal(x=self.t_rx[:n], sigs=rxtd_plot[ant_id,:n], mode='time_IQ', scale='linear', title=title, xlabel=xlabel, ylabel=ylabel, legend=True, plot_level=4)
 
         if self.mixer_mode == 'digital' and self.mix_freq!=0:
-            rxtd_base = np.zeros_like(rxtd)
-            for ant_id in range(self.n_rx_ant):
-                for frm_id in range(n_rd_rep):
-                    rxtd_base[frm_id, ant_id,:] = self.freq_shift(rxtd[frm_id, ant_id], shift=-1*self.mix_freq, fs=self.fs_rx)
+            if not is_beam_sweep:
+                rxtd_base = np.zeros_like(rxtd)
+                for ant_id in range(self.n_rx_ant):
+                    for frm_id in range(n_rd_rep):
+                        rxtd_base[frm_id, ant_id,:] = self.freq_shift(rxtd[frm_id, ant_id], shift=-1*self.mix_freq, fs=self.fs_rx)
+            else:
+                # Handle beam-swept data
+                n_beams = rxtd.shape[1]
+                rxtd_base = np.zeros_like(rxtd)
+                for beam_id in range(n_beams):
+                    for ant_id in range(self.n_rx_ant):
+                        for frm_id in range(n_rd_rep):
+                            rxtd_base[frm_id, beam_id, ant_id,:] = self.freq_shift(rxtd[frm_id, beam_id, ant_id], shift=-1*self.mix_freq, fs=self.fs_rx)
 
+            # Plot for the first beam if beam-swept data
+            rxtd_plot_base = rxtd_base[plt_frm_id] if not is_beam_sweep else rxtd_base[plt_frm_id, 0]
+            for ant_id in range(self.n_rx_ant):
                 title = 'RX signal spectrum after downconversion for antenna {}'.format(ant_id)
                 xlabel = 'Frequency (MHz)'
                 ylabel = 'Magnitude (dB)'
-                self.plot_signal(x=self.freq_rx, sigs=rxtd_base[plt_frm_id, ant_id], mode='fft', scale='dB20', title=title, xlabel=xlabel, ylabel=ylabel, plot_level=4)
+                self.plot_signal(x=self.freq_rx, sigs=rxtd_plot_base[ant_id], mode='fft', scale='dB20', title=title, xlabel=xlabel, ylabel=ylabel, plot_level=4)
         else:
             rxtd_base = rxtd.copy()
 
         if 'filter' in self.rx_chain:
-            for ant_id in range(self.n_rx_ant):
-                for frm_id in range(n_rd_rep):
-                    cf = (self.filter_bw_range[0]+self.filter_bw_range[1])/2
-                    cutoff = self.filter_bw_range[1] - self.filter_bw_range[0]
-                    rxtd_base[frm_id, ant_id,:] = self.filter(rxtd_base[frm_id, ant_id,:], center_freq=cf, cutoff=cutoff, fil_order=64, plot=False)
+            if not is_beam_sweep:
+                for ant_id in range(self.n_rx_ant):
+                    for frm_id in range(n_rd_rep):
+                        cf = (self.filter_bw_range[0]+self.filter_bw_range[1])/2
+                        cutoff = self.filter_bw_range[1] - self.filter_bw_range[0]
+                        rxtd_base[frm_id, ant_id,:] = self.filter(rxtd_base[frm_id, ant_id,:], center_freq=cf, cutoff=cutoff, fil_order=64, plot=False)
+            else:
+                # Handle beam-swept data
+                n_beams = rxtd_base.shape[1]
+                for beam_id in range(n_beams):
+                    for ant_id in range(self.n_rx_ant):
+                        for frm_id in range(n_rd_rep):
+                            cf = (self.filter_bw_range[0]+self.filter_bw_range[1])/2
+                            cutoff = self.filter_bw_range[1] - self.filter_bw_range[0]
+                            rxtd_base[frm_id, beam_id, ant_id,:] = self.filter(rxtd_base[frm_id, beam_id, ant_id,:], center_freq=cf, cutoff=cutoff, fil_order=64, plot=False)
 
+            # Plot for the first beam if beam-swept data
+            rxtd_plot_base = rxtd_base[plt_frm_id] if not is_beam_sweep else rxtd_base[plt_frm_id, 0]
+            for ant_id in range(self.n_rx_ant):
                 title = 'RX signal spectrum after filtering in base-band for antenna {}'.format(ant_id)
                 xlabel = 'Frequency (MHz)'
                 ylabel = 'Magnitude (dB)'
-                self.plot_signal(x=self.freq_rx, sigs=rxtd_base[0, ant_id], mode='fft', scale='dB20', title=title, xlabel=xlabel, ylabel=ylabel, plot_level=4)
+                self.plot_signal(x=self.freq_rx, sigs=rxtd_plot_base[ant_id], mode='fft', scale='dB20', title=title, xlabel=xlabel, ylabel=ylabel, plot_level=4)
 
+        # For spectrum comparison, use first beam if beam-swept data
+        rxtd_plot_base = rxtd_base[plt_frm_id] if not is_beam_sweep else rxtd_base[plt_frm_id, 0]
         for ant_id in range(self.n_rx_ant):
-            # n_samples = min(len(txtd_base), len(rxtd_base))
             txfd_base_ = np.abs(fftshift(fft(txtd_base[ant_id,:self.n_samples])))
-            rxfd_base_ = np.abs(fftshift(fft(rxtd_base[plt_frm_id, ant_id,:self.n_samples])))
+            rxfd_base_ = np.abs(fftshift(fft(rxtd_plot_base[ant_id,:self.n_samples])))
 
             title = 'TX and RX signals spectrum in base-band for antenna {}'.format(ant_id)
             xlabel = 'Frequency (MHz)'
@@ -1174,76 +1206,186 @@ class Signal_Utils_Rfsoc(Signal_Utils):
             n_samples_rx = self.n_samples_trx
 
         txtd_base = txtd_base[:,:self.n_samples_trx]
-        if 'integrate' in self.rx_chain:
-            rxtd_base = self.integrate_signal(rxtd_base, n_samples=n_samples_rx)
+        
+        # For the following processing steps, we'll either:
+        # 1. Process each beam separately if beam-swept data
+        # 2. Process as before if single-beam data
+        
+        if is_beam_sweep:
+            # Process each beam separately
+            n_beams = rxtd_base.shape[1]
+            rxtd_final = []
+            h_est_full_final = []
+            H_est_final = []
+            H_est_max_final = []
+            sparse_est_params_final = []
+            
+            for beam_id in range(n_beams):
+                # Extract data for current beam
+                rxtd_beam = rxtd_base[:, beam_id]
+                
+                if 'integrate' in self.rx_chain:
+                    rxtd_beam = self.integrate_signal(rxtd_beam, n_samples=n_samples_rx)
 
-        if 'sync_time' in self.rx_chain:
-            rxtd_base_s = []
-            for frm_id in range(n_rd_rep):
-                if 'sync_time_frac' in self.rx_chain:
-                    sync_frac = True
+                if 'sync_time' in self.rx_chain:
+                    rxtd_base_s = []
+                    for frm_id in range(n_rd_rep):
+                        if 'sync_time_frac' in self.rx_chain:
+                            sync_frac = True
+                        else:
+                            sync_frac = False
+                        rxtd_base_s_ = self.sync_time(rxtd_beam[frm_id], txtd_base, sc_range=self.sc_range, rx_same_delay=self.rx_same_delay, sync_frac=sync_frac)
+                        rxtd_base_s.append(rxtd_base_s_)
+                    rxtd_base_s = np.array(rxtd_base_s)
                 else:
-                    sync_frac = False
-                rxtd_base_s_ = self.sync_time(rxtd_base[frm_id], txtd_base, sc_range=self.sc_range, rx_same_delay=self.rx_same_delay, sync_frac=sync_frac)
-                rxtd_base_s.append(rxtd_base_s_)
-            rxtd_base_s = np.array(rxtd_base_s)
-        else:
-            rxtd_base_s = rxtd_base.copy()
-            rxtd_base_s = np.stack((rxtd_base_s, rxtd_base_s), axis=1)
-        
-        if 'sync_freq' in self.rx_chain:
-            cfo_coarse = self.estimate_cfo(txtd_base, rxtd_base_s, mode='coarse', sc_range=self.sc_range)
-            rxtd_base_t = self.sync_frequency(rxtd_base_s, cfo_coarse, mode='time')
-            cfo_fine = self.estimate_cfo(txtd_base, rxtd_base_t, mode='fine', sc_range=self.sc_range)
-            cfo = cfo_coarse + cfo_fine
-            rxtd_base_s = self.sync_frequency(rxtd_base_s, cfo, mode='time')
+                    rxtd_base_s = rxtd_beam.copy()
+                    rxtd_base_s = np.stack((rxtd_base_s, rxtd_base_s), axis=1)
+                
+                if 'sync_freq' in self.rx_chain:
+                    cfo_coarse = self.estimate_cfo(txtd_base, rxtd_base_s, mode='coarse', sc_range=self.sc_range)
+                    rxtd_base_t = self.sync_frequency(rxtd_base_s, cfo_coarse, mode='time')
+                    cfo_fine = self.estimate_cfo(txtd_base, rxtd_base_t, mode='fine', sc_range=self.sc_range)
+                    cfo = cfo_coarse + cfo_fine
+                    rxtd_base_s = self.sync_frequency(rxtd_base_s, cfo, mode='time')
 
-        if 'pilot_separate' in self.rx_chain:
-            rxtd_pilot_s = rxtd_base_s[:,:,:,:n_samples_rx//2]
-            rxtd_base_s = rxtd_base_s[:,:,:,n_samples_rx//2:]
-        else:
-            rxtd_pilot_s = rxtd_base_s.copy()
-        
+                if 'pilot_separate' in self.rx_chain:
+                    rxtd_pilot_s = rxtd_base_s[:,:,:,:n_samples_rx//2]
+                    rxtd_base_s = rxtd_base_s[:,:,:,n_samples_rx//2:]
+                else:
+                    rxtd_pilot_s = rxtd_base_s.copy()
 
-        rxtd_base = np.stack((rxtd_base_s[:,0,0,:self.n_samples_trx], rxtd_base_s[:,1,0,:self.n_samples_trx]), axis=1)
-        rxtd_pilot = np.stack((rxtd_pilot_s[:,0,0,:self.n_samples_trx], rxtd_pilot_s[:,1,0,:self.n_samples_trx]), axis=1)
-        
-        if 'channel_est' in self.rx_chain:
-            if 'sys_res_deconv' in self.rx_chain:
-                self.process_sys_response()
+                rxtd_base_beam = np.stack((rxtd_base_s[:,0,0,:self.n_samples_trx], rxtd_base_s[:,1,0,:self.n_samples_trx]), axis=1)
+                rxtd_pilot = np.stack((rxtd_pilot_s[:,0,0,:self.n_samples_trx], rxtd_pilot_s[:,1,0,:self.n_samples_trx]), axis=1)
+                
+                if 'channel_est' in self.rx_chain:
+                    if 'sys_res_deconv' in self.rx_chain:
+                        self.process_sys_response()
+                    else:
+                        self.sys_response = None
+                    snr_est = self.db_to_lin(self.snr_est_db, mode='pow')
+
+                    if 'sparse_est' in self.rx_chain:
+                        h = []
+                        for frm_id in range(n_rd_rep):
+                            h_est_full, H_est, H_est_max = self.channel_estimate(txtd_base, rxtd_pilot_s[frm_id], sys_response=self.sys_response, sc_range_ch=self.sc_range_ch, snr_est=snr_est)
+                            h.append(h_est_full)
+                        h = np.array(h)
+                        h = h.transpose(3,1,2,0)
+                        g = self.sys_response.copy()
+                        if g is not None:
+                            g = g.transpose(2,0,1)
+                        ndly = 5000
+                        sparse_est_params_beam = self.sparse_est(h=h, g=g, sc_range_ch=self.sc_range_ch, npaths=self.nf_npath_max, nframe_avg=1, ndly=ndly, drange=self.sparse_ch_samp_range, cv=True, n_ignore=self.sparse_ch_n_ignore)
+                    else:
+                        h_est_full, H_est, H_est_max = self.channel_estimate(txtd_base, rxtd_pilot_s, sys_response=self.sys_response, sc_range_ch=self.sc_range_ch, snr_est=snr_est)
+                        sparse_est_params_beam = None
+                    
+                    # Only update phase and AOA estimates for the best beam
+                    if beam_id == 0:  # Assuming the first beam is the best one; might need to determine the best beam based on energy
+                        self.rx_phase_list, self.aoa_list = self.estimate_mimo_params(txtd_base, rxtd_pilot, self.fc, h_est_full, H_est_max, self.rx_phase_list, self.aoa_list)
+                        if len(self.rx_phase_list)>self.nfft_trx//10:
+                            self.rx_phase_list.pop(0)
+                        if len(self.aoa_list)>self.nfft_trx//10:
+                            self.aoa_list.pop(0)
+                else:
+                    h_est_full = np.ones((self.n_rx_ant, self.n_tx_ant, self.n_samples_ch), dtype=complex)
+                    H_est = np.ones((self.n_rx_ant, self.n_tx_ant), dtype=complex)
+                    H_est_max = H_est.copy()
+                    sparse_est_params_beam = None
+                    
+                if 'channel_eq' in self.rx_chain and 'channel_est' in self.rx_chain:
+                    rxtd_base_beam = self.channel_equalize(txtd_base, rxtd_base_beam[plt_frm_id], h_est_full, H_est, sc_range=self.sc_range, sc_range_ch=self.sc_range_ch, null_sc_range=self.null_sc_range, n_rx_ch_eq=self.n_rx_ch_eq)
+                
+                rxtd_final.append(rxtd_base_beam)
+                h_est_full_final.append(h_est_full)
+                H_est_final.append(H_est)
+                H_est_max_final.append(H_est_max)
+                sparse_est_params_final.append(sparse_est_params_beam)
+            
+            # Stack results for all beams
+            rxtd_base = np.array(rxtd_final)
+            h_est_full = np.array(h_est_full_final)
+            H_est = np.array(H_est_final)
+            H_est_max = np.array(H_est_max_final)
+            
+            # For sparse_est_params, we need to handle differently as it's a tuple
+            if sparse_est_params_final[0] is not None:
+                sparse_est_params = sparse_est_params_final[0]  # Use first beam's results for now
             else:
-                self.sys_response = None
-            snr_est = self.db_to_lin(self.snr_est_db, mode='pow')
+                sparse_est_params = None
+                
+        else:
+            # Process as before for non-beam-swept data
+            if 'integrate' in self.rx_chain:
+                rxtd_base = self.integrate_signal(rxtd_base, n_samples=n_samples_rx)
 
-            if 'sparse_est' in self.rx_chain:
-                h = []
+            if 'sync_time' in self.rx_chain:
+                rxtd_base_s = []
                 for frm_id in range(n_rd_rep):
-                    h_est_full, H_est, H_est_max = self.channel_estimate(txtd_base, rxtd_pilot_s[frm_id], sys_response=self.sys_response, sc_range_ch=self.sc_range_ch, snr_est=snr_est)
-                    h.append(h_est_full)
-                h = np.array(h)
-                h = h.transpose(3,1,2,0)
-                g = self.sys_response.copy()
-                if g is not None:
-                    g = g.transpose(2,0,1)
-                ndly = 5000
-                sparse_est_params = self.sparse_est(h=h, g=g, sc_range_ch=self.sc_range_ch, npaths=self.nf_npath_max, nframe_avg=1, ndly=ndly, drange=self.sparse_ch_samp_range, cv=True, n_ignore=self.sparse_ch_n_ignore)
+                    if 'sync_time_frac' in self.rx_chain:
+                        sync_frac = True
+                    else:
+                        sync_frac = False
+                    rxtd_base_s_ = self.sync_time(rxtd_base[frm_id], txtd_base, sc_range=self.sc_range, rx_same_delay=self.rx_same_delay, sync_frac=sync_frac)
+                    rxtd_base_s.append(rxtd_base_s_)
+                rxtd_base_s = np.array(rxtd_base_s)
             else:
-                h_est_full, H_est, H_est_max = self.channel_estimate(txtd_base, rxtd_pilot_s, sys_response=self.sys_response, sc_range_ch=self.sc_range_ch, snr_est=snr_est)
+                rxtd_base_s = rxtd_base.copy()
+                rxtd_base_s = np.stack((rxtd_base_s, rxtd_base_s), axis=1)
             
-            self.rx_phase_list, self.aoa_list = self.estimate_mimo_params(txtd_base, rxtd_pilot, self.fc, h_est_full, H_est_max, self.rx_phase_list, self.aoa_list)
-            if len(self.rx_phase_list)>self.nfft_trx//10:
-                self.rx_phase_list.pop(0)
-            if len(self.aoa_list)>self.nfft_trx//10:
-                self.aoa_list.pop(0)
-        else:
-            h_est_full = np.ones((self.n_rx_ant, self.n_tx_ant, self.n_samples_ch), dtype=complex)
-            H_est = np.ones((self.n_rx_ant, self.n_tx_ant), dtype=complex)
-            H_est_max = H_est.copy()
-        if 'channel_eq' in self.rx_chain and 'channel_est' in self.rx_chain:
-            rxtd_base = self.channel_equalize(txtd_base, rxtd_base[plt_frm_id], h_est_full, H_est, sc_range=self.sc_range, sc_range_ch=self.sc_range_ch, null_sc_range=self.null_sc_range, n_rx_ch_eq=self.n_rx_ch_eq)
+            if 'sync_freq' in self.rx_chain:
+                cfo_coarse = self.estimate_cfo(txtd_base, rxtd_base_s, mode='coarse', sc_range=self.sc_range)
+                rxtd_base_t = self.sync_frequency(rxtd_base_s, cfo_coarse, mode='time')
+                cfo_fine = self.estimate_cfo(txtd_base, rxtd_base_t, mode='fine', sc_range=self.sc_range)
+                cfo = cfo_coarse + cfo_fine
+                rxtd_base_s = self.sync_frequency(rxtd_base_s, cfo, mode='time')
+
+            if 'pilot_separate' in self.rx_chain:
+                rxtd_pilot_s = rxtd_base_s[:,:,:,:n_samples_rx//2]
+                rxtd_base_s = rxtd_base_s[:,:,:,n_samples_rx//2:]
+            else:
+                rxtd_pilot_s = rxtd_base_s.copy()
             
 
-        if len(rxtd_base.shape)==3:
+            rxtd_base = np.stack((rxtd_base_s[:,0,0,:self.n_samples_trx], rxtd_base_s[:,1,0,:self.n_samples_trx]), axis=1)
+            rxtd_pilot = np.stack((rxtd_pilot_s[:,0,0,:self.n_samples_trx], rxtd_pilot_s[:,1,0,:self.n_samples_trx]), axis=1)
+            
+            if 'channel_est' in self.rx_chain:
+                if 'sys_res_deconv' in self.rx_chain:
+                    self.process_sys_response()
+                else:
+                    self.sys_response = None
+                snr_est = self.db_to_lin(self.snr_est_db, mode='pow')
+
+                if 'sparse_est' in self.rx_chain:
+                    h = []
+                    for frm_id in range(n_rd_rep):
+                        h_est_full, H_est, H_est_max = self.channel_estimate(txtd_base, rxtd_pilot_s[frm_id], sys_response=self.sys_response, sc_range_ch=self.sc_range_ch, snr_est=snr_est)
+                        h.append(h_est_full)
+                    h = np.array(h)
+                    h = h.transpose(3,1,2,0)
+                    g = self.sys_response.copy()
+                    if g is not None:
+                        g = g.transpose(2,0,1)
+                    ndly = 5000
+                    sparse_est_params = self.sparse_est(h=h, g=g, sc_range_ch=self.sc_range_ch, npaths=self.nf_npath_max, nframe_avg=1, ndly=ndly, drange=self.sparse_ch_samp_range, cv=True, n_ignore=self.sparse_ch_n_ignore)
+                else:
+                    h_est_full, H_est, H_est_max = self.channel_estimate(txtd_base, rxtd_pilot_s, sys_response=self.sys_response, sc_range_ch=self.sc_range_ch, snr_est=snr_est)
+                
+                self.rx_phase_list, self.aoa_list = self.estimate_mimo_params(txtd_base, rxtd_pilot, self.fc, h_est_full, H_est_max, self.rx_phase_list, self.aoa_list)
+                if len(self.rx_phase_list)>self.nfft_trx//10:
+                    self.rx_phase_list.pop(0)
+                if len(self.aoa_list)>self.nfft_trx//10:
+                    self.aoa_list.pop(0)
+            else:
+                h_est_full = np.ones((self.n_rx_ant, self.n_tx_ant, self.n_samples_ch), dtype=complex)
+                H_est = np.ones((self.n_rx_ant, self.n_tx_ant), dtype=complex)
+                H_est_max = H_est.copy()
+                
+            if 'channel_eq' in self.rx_chain and 'channel_est' in self.rx_chain:
+                rxtd_base = self.channel_equalize(txtd_base, rxtd_base[plt_frm_id], h_est_full, H_est, sc_range=self.sc_range, sc_range_ch=self.sc_range_ch, null_sc_range=self.null_sc_range, n_rx_ch_eq=self.n_rx_ch_eq)
+
+        if len(rxtd_base.shape)==3 and not is_beam_sweep:
             rxtd_base = rxtd_base[plt_frm_id]
 
         return (rxtd_base, h_est_full, H_est, H_est_max, sparse_est_params)

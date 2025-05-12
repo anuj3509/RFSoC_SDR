@@ -196,18 +196,37 @@ class Tcp_Comm_RFSoC(Tcp_Comm):
             nbeams = 1
             self.radio_control.sendall(b"receiveSamplesOnce")
         elif mode=='beams':
+            # When in beams mode, get all beams from the beam_test array
             nbeams = len(self.beam_test)
             self.radio_control.sendall(b"receiveSamples")
+        else:
+            raise ValueError(f"Invalid mode: {mode}")
+            
         nbytes = nbeams * self.nbytes * self.nread * 2
         buf = bytearray()
 
         while len(buf) < nbytes:
             data = self.radio_data.recv(nbytes)
+            if not data:
+                # Handle potential connection issues
+                self.print(f"No data received from socket. Expected {nbytes} bytes, got {len(buf)} so far.", thr=1)
+                break
             buf.extend(data)
+            
+        if len(buf) < nbytes:
+            self.print(f"Warning: Incomplete data received. Expected {nbytes} bytes, got {len(buf)}.", thr=1)
+            
         data = np.frombuffer(buf, dtype=np.int16)
         data = data/(2 ** (self.adc_bits + 1) - 1)
-        rxtd = data[:self.nread*nbeams] + 1j*data[self.nread*nbeams:]
-        rxtd = rxtd.reshape(nbeams, self.n_rx_ant, self.nread//self.n_rx_ant)
+        
+        # Shape the data appropriately
+        if mode == 'once':
+            rxtd = data[:self.nread] + 1j*data[self.nread:]
+            rxtd = rxtd.reshape(1, self.n_rx_ant, self.nread//self.n_rx_ant)  # Add beam dimension of size 1
+        else:  # mode == 'beams'
+            rxtd = data[:self.nread*nbeams] + 1j*data[self.nread*nbeams:]
+            rxtd = rxtd.reshape(nbeams, self.n_rx_ant, self.nread//self.n_rx_ant)
+            
         return rxtd
     
 
